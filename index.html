@@ -309,8 +309,11 @@ body {
     </div>
     <div class="card result-card" id="resultCard"></div>
     <div class="result-actions">
-      <button class="btn btn-ghost" id="btnShare">分享结果</button>
+      <button class="btn btn-ghost" id="btnShare">分享给微信好友</button>
       <button class="btn btn-primary" id="btnRetry">重新测试</button>
+    </div>
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn-close-share" id="btnShowQR" style="font-size:12px;color:var(--text-dim);background:none;border:none;cursor:pointer;letter-spacing:1px;font-family:inherit">显示二维码</button>
     </div>
   </div>
 
@@ -325,7 +328,7 @@ body {
     <div class="share-hint">微信扫码 或 复制链接发送给好友</div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="btnCopyLink">复制链接</button>
-      <button class="btn btn-primary" id="btnNativeShare" style="display:none">直接分享</button>
+      <button class="btn btn-primary" id="btnOpenWechat" style="display:none">打开微信</button>
     </div>
     <button class="btn-close-share" id="btnCloseShare">关闭</button>
   </div>
@@ -632,7 +635,7 @@ const loadingJokeEl = $('loadingJoke'), resultCard = $('resultCard');
 const btnShare = $('btnShare'), btnRetry = $('btnRetry');
 const shareOverlay = $('shareOverlay'), sharePreview = $('sharePreview');
 const qrWrap = $('qrWrap'), btnCopyLink = $('btnCopyLink');
-const btnNativeShare = $('btnNativeShare'), btnCloseShare = $('btnCloseShare');
+const btnOpenWechat = $('btnOpenWechat'), btnCloseShare = $('btnCloseShare');
 const ogTitle = $('ogTitle'), ogDesc = $('ogDesc'), ogUrl = $('ogUrl');
 
 function showScreen(screen) {
@@ -860,8 +863,8 @@ function showShareModal() {
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
   qrWrap.innerHTML = `<img src="${qrSrc}" alt="QR Code" onerror="this.style.display='none'">`;
 
-  // Native share button
-  btnNativeShare.style.display = navigator.share ? '' : 'none';
+  // Show "打开微信" button only on mobile
+  btnOpenWechat.style.display = /Mobi|Android|iPhone/i.test(navigator.userAgent) ? '' : 'none';
 
   shareOverlay.style.display = '';
 }
@@ -882,18 +885,46 @@ btnCopyLink.addEventListener('click', () => {
   navigator.clipboard.writeText(text).then(() => toast('已复制，去微信粘贴给好友吧')).catch(() => toast('请截图分享'));
 });
 
-btnNativeShare.addEventListener('click', () => {
+btnOpenWechat.addEventListener('click', () => {
+  // Try to open WeChat via URL scheme
   const r = state.result;
   const url = getShareUrl();
-  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →`;
-  navigator.share({ title:'照妖镜 — 星座×MBTI 现出原形', text, url }).catch(()=>{});
+  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →\n${url}`;
+  // Copy to clipboard first
+  navigator.clipboard.writeText(text).catch(()=>{});
+  // Try to open WeChat
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const wechatScheme = isIOS ? 'weixin://' : 'weixin://';
+  const start = Date.now();
+  window.location.href = wechatScheme;
+  // If WeChat doesn't open within 800ms, it's probably not installed or scheme is blocked
+  setTimeout(() => {
+    if (Date.now() - start < 1200) {
+      toast('已复制链接，请手动打开微信粘贴');
+    }
+  }, 800);
 });
 
 // ==================== SHARE & RETRY ====================
 btnShare.addEventListener('click', () => {
   if (!state.result) return;
-  showShareModal();
+  const r = state.result;
+  const url = getShareUrl();
+  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →`;
+
+  // On mobile, try direct system share first (WeChat is usually in the share sheet)
+  if (navigator.share && /Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+    navigator.share({ title:'照妖镜 — 星座×MBTI 现出原形', text, url }).catch(() => {
+      showShareModal();
+    });
+  } else {
+    // Desktop or no Web Share API: show QR modal
+    showShareModal();
+  }
 });
+
+const btnShowQR = $('btnShowQR');
+btnShowQR.addEventListener('click', () => { showShareModal(); });
 
 btnRetry.addEventListener('click', () => {
   state.zodiac = null; state.currentQ = 0;
