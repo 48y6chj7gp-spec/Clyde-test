@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>照妖镜 — 星座 × MBTI 现出原形</title>
+<meta property="og:title" id="ogTitle" content="照妖镜 — 星座×MBTI 现出原形">
+<meta property="og:description" id="ogDesc" content="来照照你是什么妖怪 →">
+<meta property="og:type" content="website">
+<meta property="og:url" id="ogUrl" content="">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -198,6 +202,45 @@ body {
   pointer-events: none; letter-spacing: 1px;
 }
 
+/* Share modal */
+.share-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; animation: fadeIn 0.25s ease;
+  padding: 24px;
+}
+.share-modal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  width: 100%; max-width: 360px;
+  animation: softPop 0.35s ease;
+}
+.share-modal .share-title {
+  font-size: 16px; font-weight: 500; letter-spacing: 2px;
+  text-align: center; margin-bottom: 20px; color: var(--text);
+}
+.share-modal .share-preview {
+  background: rgba(255,255,255,0.03); border-radius: 12px;
+  padding: 16px; margin-bottom: 20px; text-align: center;
+}
+.share-modal .share-preview .sp-emoji { font-size: 40px; display: block; margin-bottom: 4px; }
+.share-modal .share-preview .sp-name { font-size: 18px; font-weight: 300; letter-spacing: 4px; }
+.share-modal .share-preview .sp-meta { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+.share-modal .qr-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
+.share-modal .qr-wrap img {
+  width: 160px; height: 160px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.share-modal .share-hint { font-size: 12px; color: var(--text-dim); text-align: center; margin-bottom: 16px; line-height: 1.6; }
+.share-modal .btn-row { display: flex; gap: 10px; }
+.share-modal .btn-row .btn { flex: 1; }
+.share-modal .btn-close-share {
+  background: transparent; border: none; color: var(--text-dim);
+  font-size: 13px; cursor: pointer; padding: 10px;
+  display: block; width: 100%; text-align: center; margin-top: 8px;
+  letter-spacing: 1px; font-family: inherit;
+}
+
 /* Mobile */
 @media (max-width: 360px) {
   .zodiac-grid { gap: 6px; }
@@ -271,6 +314,21 @@ body {
     </div>
   </div>
 
+</div>
+
+<!-- ====== SHARE OVERLAY ====== -->
+<div class="share-overlay" id="shareOverlay" style="display:none">
+  <div class="share-modal">
+    <div class="share-title">分享结果</div>
+    <div class="share-preview" id="sharePreview"></div>
+    <div class="qr-wrap" id="qrWrap"></div>
+    <div class="share-hint">微信扫码 或 复制链接发送给好友</div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnCopyLink">复制链接</button>
+      <button class="btn btn-primary" id="btnNativeShare" style="display:none">直接分享</button>
+    </div>
+    <button class="btn-close-share" id="btnCloseShare">关闭</button>
+  </div>
 </div>
 
 <script>
@@ -572,6 +630,10 @@ const dimensionLabel = $('dimensionLabel'), questionText = $('questionText');
 const optionsWrap = $('optionsWrap'), quizCard = $('quizCard');
 const loadingJokeEl = $('loadingJoke'), resultCard = $('resultCard');
 const btnShare = $('btnShare'), btnRetry = $('btnRetry');
+const shareOverlay = $('shareOverlay'), sharePreview = $('sharePreview');
+const qrWrap = $('qrWrap'), btnCopyLink = $('btnCopyLink');
+const btnNativeShare = $('btnNativeShare'), btnCloseShare = $('btnCloseShare');
+const ogTitle = $('ogTitle'), ogDesc = $('ogDesc'), ogUrl = $('ogUrl');
 
 function showScreen(screen) {
   [screenZodiac, screenQuiz, screenLoading, screenResult].forEach(s => s.classList.remove('active'));
@@ -744,19 +806,93 @@ function renderResult() {
       ${r.tags.map(t => `<span class="tag">${t}</span>`).join('')}
     </div>
   `;
+
+  // Update URL and meta for sharing
+  window.location.hash = `r=${zodiacs.indexOf(state.zodiac)}-${r.mbti}`;
+  updateMetaTags();
 }
+
+// ==================== SHARE URL ====================
+function getShareUrl() {
+  if (!state.result) return '';
+  const zodiacIdx = zodiacs.indexOf(state.zodiac);
+  const hash = `#r=${zodiacIdx}-${state.result.mbti}`;
+  const base = window.location.href.split('#')[0];
+  return base + hash;
+}
+
+function parseShareHash() {
+  const h = window.location.hash;
+  if (!h.startsWith('#r=')) return null;
+  const parts = h.slice(3).split('-');
+  if (parts.length !== 2) return null;
+  const zodiacIdx = parseInt(parts[0]);
+  const mbti = parts[1];
+  if (isNaN(zodiacIdx) || zodiacIdx < 0 || zodiacIdx >= zodiacs.length) return null;
+  if (!/^[EI][SN][TF][JP]$/.test(mbti)) return null;
+  return { zodiac: zodiacs[zodiacIdx], mbti };
+}
+
+function updateMetaTags() {
+  if (!state.result) return;
+  const r = state.result;
+  const text = `${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}`;
+  document.title = `照妖镜 — ${text}`;
+  if (ogTitle) ogTitle.setAttribute('content', document.title);
+  if (ogDesc) ogDesc.setAttribute('content', `来照照你是什么妖怪 →\n${text}`);
+  if (ogUrl) ogUrl.setAttribute('content', getShareUrl());
+}
+
+// ==================== SHARE MODAL ====================
+function showShareModal() {
+  if (!state.result) return;
+  const r = state.result;
+  const url = getShareUrl();
+
+  // Preview
+  sharePreview.innerHTML = `
+    <span class="sp-emoji">${r.emoji}</span>
+    <div class="sp-name">${r.name}</div>
+    <div class="sp-meta">${state.zodiac.emoji} ${state.zodiac.name} · ${r.mbti} · ${r.code}</div>
+  `;
+
+  // QR code
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(url)}`;
+  qrWrap.innerHTML = `<img src="${qrSrc}" alt="QR Code" onerror="this.style.display='none'">`;
+
+  // Native share button
+  btnNativeShare.style.display = navigator.share ? '' : 'none';
+
+  shareOverlay.style.display = '';
+}
+
+function hideShareModal() {
+  shareOverlay.style.display = 'none';
+}
+
+shareOverlay.addEventListener('click', e => {
+  if (e.target === shareOverlay) hideShareModal();
+});
+btnCloseShare.addEventListener('click', hideShareModal);
+
+btnCopyLink.addEventListener('click', () => {
+  const r = state.result;
+  const url = getShareUrl();
+  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →\n${url}`;
+  navigator.clipboard.writeText(text).then(() => toast('已复制，去微信粘贴给好友吧')).catch(() => toast('请截图分享'));
+});
+
+btnNativeShare.addEventListener('click', () => {
+  const r = state.result;
+  const url = getShareUrl();
+  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →`;
+  navigator.share({ title:'照妖镜 — 星座×MBTI 现出原形', text, url }).catch(()=>{});
+});
 
 // ==================== SHARE & RETRY ====================
 btnShare.addEventListener('click', () => {
   if (!state.result) return;
-  const r = state.result;
-  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →`;
-
-  if (navigator.share) {
-    navigator.share({ title:'照妖镜 — 星座×MBTI 现出原形', text }).catch(()=>{});
-  } else {
-    navigator.clipboard.writeText(text).then(() => toast('已复制，去分享吧')).catch(() => toast('请截图分享'));
-  }
+  showShareModal();
 });
 
 btnRetry.addEventListener('click', () => {
@@ -770,6 +906,17 @@ btnRetry.addEventListener('click', () => {
 
 // ==================== INIT ====================
 buildZodiacGrid();
+
+// Check for shared result in URL hash
+const shared = parseShareHash();
+if (shared) {
+  state.zodiac = shared.zodiac;
+  const group = getMBTIGroup(shared.mbti);
+  state.result = animalData[shared.zodiac.element][group];
+  state.result.mbti = shared.mbti;
+  renderResult();
+  showScreen(screenResult);
+}
 </script>
 </body>
 </html>
