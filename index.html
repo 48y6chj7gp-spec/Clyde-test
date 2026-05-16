@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>照妖镜 — 星座 × MBTI 现出原形</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0d0d;
+  --card: #141414;
+  --border: rgba(255,255,255,0.06);
+  --text: #d4cfc8;
+  --text-dim: #6b6660;
+  --text-sub: #8b857d;
+  --accent: #bfa67a;
+  --accent-dim: rgba(191,166,122,0.15);
+  --accent-glow: rgba(191,166,122,0.3);
+}
+
+body {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: flex; justify-content: center;
+  padding: 0 16px 40px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { width: 100%; max-width: 420px; }
+
+/* Screen management */
+.screen { display: none; }
+.screen.active { display: block; animation: fadeUp 0.4s ease; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes softPop { 0% { opacity: 0; transform: scale(0.92); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes subtleFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes ringPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(191,166,122,0.2); } 50% { box-shadow: 0 0 0 12px rgba(191,166,122,0); } }
+
+/* Brand */
+.brand { text-align: center; padding: 40px 0 24px; }
+.brand .logo { font-size: 22px; font-weight: 300; letter-spacing: 6px; color: var(--text); }
+.brand .sub { font-size: 10px; color: var(--text-dim); letter-spacing: 4px; margin-top: 6px; text-transform: uppercase; }
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  margin-bottom: 16px;
+}
+
+/* Section header */
+.sec-title {
+  font-size: 13px; font-weight: 500; color: var(--text-dim); letter-spacing: 2px;
+  margin-bottom: 16px; text-align: center; text-transform: uppercase;
+}
+
+/* ===== ZODIAC GRID ===== */
+.zodiac-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.zodiac-item {
+  aspect-ratio: 1; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.25s; gap: 2px;
+}
+.zodiac-item:active { transform: scale(0.96); }
+.zodiac-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.zodiac-item .emoji { font-size: 26px; transition: transform 0.3s; }
+.zodiac-item.selected .emoji { transform: scale(1.15); }
+.zodiac-item .label { font-size: 11px; color: var(--text-dim); }
+.zodiac-item.selected .label { color: var(--accent); }
+
+/* Buttons */
+.btn {
+  width: 100%; padding: 15px; border-radius: 12px; border: none;
+  font-size: 15px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+  letter-spacing: 2px; font-family: inherit;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
+
+.btn-primary {
+  background: rgba(255,255,255,0.9); color: #0d0d0d;
+  margin-top: 12px;
+}
+.btn-primary:not(:disabled):hover { background: #fff; }
+
+.btn-ghost {
+  background: transparent; color: var(--text-dim); border: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px; padding: 12px; letter-spacing: 1px;
+}
+.btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+/* ===== QUIZ ===== */
+.quiz-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.progress-dots { display: flex; gap: 4px; }
+.progress-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.1);
+  transition: all 0.3s;
+}
+.progress-dot.done { background: var(--accent); }
+.progress-dot.current { background: rgba(255,255,255,0.5); transform: scale(1.3); }
+
+.quiz-dim { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; }
+
+.q-text { font-size: 18px; font-weight: 400; line-height: 1.6; margin-bottom: 28px; color: var(--text); }
+
+.option {
+  display: block; width: 100%; padding: 14px 16px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);
+  color: var(--text-sub); font-size: 13px; text-align: left; cursor: pointer;
+  transition: all 0.2s; margin-bottom: 8px; font-family: inherit; line-height: 1.5;
+}
+.option:active { transform: scale(0.98); }
+.option .opt-prefix { color: var(--accent); margin-right: 8px; font-size: 11px; letter-spacing: 1px; }
+.option.selected-anim { border-color: var(--accent); background: var(--accent-dim); color: var(--text); }
+
+/* ===== LOADING ===== */
+.loading-wrap { text-align: center; padding: 50px 20px; }
+.loading-ring {
+  width: 48px; height: 48px; border-radius: 50%; margin: 0 auto 24px;
+  border: 2px solid rgba(255,255,255,0.06);
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: var(--text-dim); letter-spacing: 2px; }
+.loading-joke { font-size: 12px; color: var(--text-dim); margin-top: 10px; opacity: 0.5; }
+
+/* ===== RESULT ===== */
+.result-card { padding: 36px 24px; animation: softPop 0.5s ease; }
+
+/* Animal emblem */
+.emblem-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+.emblem {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(191,166,122,0.1) 0%, transparent 70%);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(191,166,122,0.2);
+  position: relative;
+  animation: ringPulse 3s ease infinite;
+}
+.emblem .emoji { font-size: 56px; animation: subtleFloat 3s ease infinite; }
+
+.result-name { font-size: 26px; font-weight: 300; letter-spacing: 6px; text-align: center; margin-bottom: 2px; }
+.result-meta { font-size: 11px; color: var(--text-dim); letter-spacing: 3px; text-align: center; margin-bottom: 32px; }
+
+/* Analysis sections */
+.analysis-section { margin-bottom: 28px; }
+.analysis-section:last-child { margin-bottom: 0; }
+.sec-label {
+  font-size: 10px; font-weight: 500; color: var(--accent); letter-spacing: 3px;
+  margin-bottom: 10px; text-transform: uppercase;
+}
+.sec-body { font-size: 14px; line-height: 1.85; color: var(--text-sub); }
+.sec-body p { margin-bottom: 10px; }
+.sec-body p:last-child { margin-bottom: 0; }
+
+/* Divider */
+.divider { border: none; border-top: 1px solid rgba(255,255,255,0.05); margin: 28px 0; }
+
+/* CP box */
+.cp-inline { font-size: 14px; color: var(--text-sub); line-height: 1.7; }
+.cp-inline .cp-icon { font-size: 24px; vertical-align: middle; margin-right: 4px; }
+
+/* Tag row */
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; justify-content: center; }
+.tag {
+  padding: 5px 12px; border-radius: 20px; font-size: 11px; letter-spacing: 2px;
+  border: 1px solid rgba(255,255,255,0.06); color: var(--text-dim);
+}
+
+/* Action buttons */
+.result-actions { display: flex; gap: 10px; margin-top: 20px; }
+.result-actions .btn { flex: 1; }
+
+/* Toast */
+.toast {
+  position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a1a1a; color: var(--text); padding: 12px 24px;
+  border-radius: 100px; font-size: 13px; z-index: 100;
+  border: 1px solid rgba(255,255,255,0.08);
+  animation: fadeUp 0.35s ease;
+  pointer-events: none; letter-spacing: 1px;
+}
+
+/* Mobile */
+@media (max-width: 360px) {
+  .zodiac-grid { gap: 6px; }
+  .zodiac-item { border-radius: 10px; }
+  .zodiac-item .emoji { font-size: 22px; }
+  .zodiac-item .label { font-size: 10px; }
+  .q-text { font-size: 16px; }
+  .option { font-size: 12px; padding: 12px 14px; margin-bottom: 6px; }
+  .emblem { width: 100px; height: 100px; }
+  .emblem .emoji { font-size: 44px; }
+  .result-name { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="app">
+
+  <!-- ====== ZODIAC SELECT ====== -->
+  <div class="screen active" id="screen-zodiac">
+    <div class="brand">
+      <div class="logo">照 妖 镜</div>
+      <div class="sub">Zodiac × Personality</div>
+    </div>
+    <div class="card">
+      <div class="sec-title">选择你的星座</div>
+      <div class="zodiac-grid" id="zodiacGrid"></div>
+    </div>
+    <button class="btn btn-primary" id="btnStart" disabled>开始测试</button>
+  </div>
+
+  <!-- ====== QUIZ ====== -->
+  <div class="screen" id="screen-quiz">
+    <div class="brand" style="padding:24px 0 16px">
+      <div class="logo" style="font-size:16px;letter-spacing:4px">照 妖 镜</div>
+      <div class="sub" id="zodiacLabel"></div>
+    </div>
+    <div class="card" id="quizCard">
+      <div class="quiz-meta">
+        <div class="progress-dots" id="progressDots"></div>
+        <div class="quiz-dim" id="dimensionLabel"></div>
+      </div>
+      <div class="q-text" id="questionText"></div>
+      <div id="optionsWrap"></div>
+    </div>
+  </div>
+
+  <!-- ====== LOADING ====== -->
+  <div class="screen" id="screen-loading">
+    <div class="brand">
+      <div class="logo">照 妖 镜</div>
+      <div class="sub">正在照出你的原形...</div>
+    </div>
+    <div class="card loading-wrap">
+      <div class="loading-ring"></div>
+      <div class="loading-text">照妖镜启动中</div>
+      <div class="loading-joke" id="loadingJoke"></div>
+    </div>
+  </div>
+
+  <!-- ====== RESULT ====== -->
+  <div class="screen" id="screen-result">
+    <div class="brand" style="padding:24px 0 16px">
+      <div class="logo" style="font-size:16px;letter-spacing:4px">照 妖 镜</div>
+      <div class="sub">Zodiac × Personality</div>
+    </div>
+    <div class="card result-card" id="resultCard"></div>
+    <div class="result-actions">
+      <button class="btn btn-ghost" id="btnShare">分享结果</button>
+      <button class="btn btn-primary" id="btnRetry">重新测试</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ==================== DATA ====================
+
+const zodiacs = [
+  { name:'白羊座', emoji:'♈', element:'fire' }, { name:'金牛座', emoji:'♉', element:'earth' },
+  { name:'双子座', emoji:'♊', element:'air' }, { name:'巨蟹座', emoji:'♋', element:'water' },
+  { name:'狮子座', emoji:'♌', element:'fire' }, { name:'处女座', emoji:'♍', element:'earth' },
+  { name:'天秤座', emoji:'♎', element:'air' }, { name:'天蝎座', emoji:'♏', element:'water' },
+  { name:'射手座', emoji:'♐', element:'fire' }, { name:'摩羯座', emoji:'♑', element:'earth' },
+  { name:'水瓶座', emoji:'♒', element:'air' }, { name:'双鱼座', emoji:'♓', element:'water' },
+];
+
+const questions = [
+  { dim:'EI', tag:'能量来源', text:'周五晚上，你更想？', opts:[
+    {dim:'E',weight:2,text:'约上朋友出去嗨到半夜，人越多越兴奋'},
+    {dim:'E',weight:1,text:'约两三个好友吃个饭，小范围叙叙旧'},
+    {dim:'I',weight:1,text:'一个人出去散散步看场电影，也挺好'},
+    {dim:'I',weight:2,text:'窝在家里刷剧打游戏，谁能把我叫出门算你厉害'}
+  ]},
+  { dim:'EI', tag:'能量来源', text:'一个满是陌生人的聚会，你？', opts:[
+    {dim:'E',weight:2,text:'主动出击，认识不认识都能聊起来'},
+    {dim:'E',weight:1,text:'先观察，找到看起来好说话的人聊聊'},
+    {dim:'I',weight:1,text:'待在认识的人旁边，偶尔插两句话'},
+    {dim:'I',weight:2,text:'缩在角落玩手机，祈祷有人来搭话——但也别真来'}
+  ]},
+  { dim:'EI', tag:'能量来源', text:'打电话 vs 发文字，你更偏好？', opts:[
+    {dim:'E',weight:2,text:'能打电话绝不打字，三分钟说清的事干嘛打半天'},
+    {dim:'E',weight:1,text:'重要的事打电话，闲聊打字就够了'},
+    {dim:'I',weight:1,text:'尽量打字，实在说不清楚再打电话'},
+    {dim:'I',weight:2,text:'看到来电显示先慌三秒，接起来假装信号不好'}
+  ]},
+  { dim:'SN', tag:'认知方式', text:'去陌生城市旅行，你更依赖？', opts:[
+    {dim:'S',weight:2,text:'精确到分钟的攻略，每个景点餐厅都提前查好'},
+    {dim:'S',weight:1,text:'有个大致路线就行，具体到了再灵活调整'},
+    {dim:'N',weight:1,text:'只订机酒，剩下的随缘，走到哪算哪'},
+    {dim:'N',weight:2,text:'不做任何攻略，迷路了就当探索隐藏副本'}
+  ]},
+  { dim:'SN', tag:'认知方式', text:'看书或电影，你最在意什么？', opts:[
+    {dim:'S',weight:2,text:'剧情逻辑严不严密，有没有穿帮和bug'},
+    {dim:'S',weight:1,text:'故事讲得好不好、人物立不立体'},
+    {dim:'N',weight:1,text:'能不能触动我，让我有所感悟和联想'},
+    {dim:'N',weight:2,text:'整体的意境留白和象征隐喻，看完还在回味'}
+  ]},
+  { dim:'SN', tag:'认知方式', text:'有人说你"想太多"，你通常在？', opts:[
+    {dim:'S',weight:2,text:'想具体的方案、步骤和风险预案，这叫有规划'},
+    {dim:'S',weight:1,text:'复盘今天的事情，想想哪些地方可以优化'},
+    {dim:'N',weight:1,text:'脑补未来的各种可能性，每条支线都跑一遍'},
+    {dim:'N',weight:2,text:'思考人生意义宇宙本质，已经想了三个小时了'}
+  ]},
+  { dim:'TF', tag:'决策模式', text:'好朋友哭着说被分手了，你第一反应？', opts:[
+    {dim:'T',weight:2,text:'帮她理清逻辑——"这件事其实有三个问题..."'},
+    {dim:'T',weight:1,text:'一边听一边给建议，但也会注意她的情绪状态'},
+    {dim:'F',weight:1,text:'先安抚情绪，等她平静下来再聊道理'},
+    {dim:'F',weight:2,text:'什么都别说，先抱紧她，陪她用完这包纸巾'}
+  ]},
+  { dim:'TF', tag:'决策模式', text:'团队有人明显在摸鱼拖后腿，你？', opts:[
+    {dim:'T',weight:2,text:'当面说出来，影响进度就该直说，谁的感受都不好使'},
+    {dim:'T',weight:1,text:'私下找他聊，给面子但把话说明白'},
+    {dim:'F',weight:1,text:'侧面暗示一下，不想伤感情但问题总要解决'},
+    {dim:'F',weight:2,text:'忍忍算了，大家都不容易，多做一点也不会死'}
+  ]},
+  { dim:'TF', tag:'决策模式', text:'做一个重大决定时，你更相信？', opts:[
+    {dim:'T',weight:2,text:'列个 Excel 算利弊，数据不会骗人'},
+    {dim:'T',weight:1,text:'理性分析为主，但也会参考一下直觉'},
+    {dim:'F',weight:1,text:'直觉感受为主，但也会看看事实数据做验证'},
+    {dim:'F',weight:2,text:'身体和心的感受最诚实，它知道该往哪走'}
+  ]},
+  { dim:'JP', tag:'生活节奏', text:'你的桌面或房间通常？', opts:[
+    {dim:'J',weight:2,text:'每样东西都有固定位置，用完立刻归位'},
+    {dim:'J',weight:1,text:'大概整齐就行，定期整理，不乱到离谱'},
+    {dim:'P',weight:1,text:'有点乱但重要的东西能找到，别动我的秩序'},
+    {dim:'P',weight:2,text:'看似混沌但每样东西的位置我都知道——别碰！'}
+  ]},
+  { dim:'JP', tag:'生活节奏', text:'两周后有个重要 deadline，你？', opts:[
+    {dim:'J',weight:2,text:'拆成每日小目标，按时间表稳步推进'},
+    {dim:'J',weight:1,text:'前半段收集准备，最后一周集中火力冲刺'},
+    {dim:'P',weight:1,text:'前面轻松点，反正最后几天效率会爆表'},
+    {dim:'P',weight:2,text:'前十三天岁月静好，最后一天创造奇迹——每次都这样'}
+  ]},
+  { dim:'JP', tag:'生活节奏', text:'年度计划 vs 实际执行，你最接近？', opts:[
+    {dim:'J',weight:2,text:'计划就是用来执行的，完成率 80% 以上是底线'},
+    {dim:'J',weight:1,text:'大体能完成，小部分随缘，生活总有意外'},
+    {dim:'P',weight:1,text:'完成一半就不错了，计划永远赶不上变化'},
+    {dim:'P',weight:2,text:'制定计划本身已经让我快乐了，执不执行那是另一个赛道'}
+  ]},
+];
+
+// Expanded animal data with ~500 char analysis combining zodiac + MBTI
+const animalData = {
+  fire: {
+    NT: {
+      emoji:'🐉', name:'焚 天 龙', code:'FF-NT',
+      analysis: {
+        zodiac: '火象星座的你——白羊的冲动、狮子的霸气或射手的无畏——骨子里燃烧着不灭的生命之火。你不习惯等待，更无法忍受犹豫。想到什么就立刻去做的莽撞，既是上天赐你的利刃，也是你需要小心把控的双刃剑。火象赋予你异于常人的行动力：别人还在会议室里讨论方案，你已经冲出去试错了三轮。但也正因如此，你常常低估了"停下来思考"的价值。你的情绪像一座活火山——平日里波澜不惊，一旦被点燃，方圆十里寸草不生。',
+        mbti: '在 MBTI 的世界里，你属于 NT 型——直觉与思维的结合体，天生的战略家。你的大脑从不关机，它总在后台默默运算着"如何让一切更高效"。你不关心眼前的鸡毛蒜皮，你的目光永远投向远方：更大的图景、更优的系统、更底层的逻辑。这让你的判断力远超同龄人，但也让你时常感到孤独——因为不是所有人都能和你在同一个抽象层级对话。你下意识地认为"解决问题"比"安抚情绪"更重要，这让一些人觉得你冷漠，但你只是把温柔藏在了行动里。',
+        fusion: '火象的爆发力撞上 NT 的战略脑，照妖镜里显出最令人敬畏的存在——焚天龙。你是一头披着理性铠甲的火焰巨兽。外人看到你冷静高效、逻辑缜密；只有最亲近的人才知道，你的胸腔里始终燃烧着不灭的烈火。你的"暴躁"从不是无理取闹——你只是无法忍受明明有更好的方案却没人能理解。你愤怒于低效，痛恨于扯皮，鄙视一切形式的"差不多得了"。但焚天龙最动人的地方在于：每次喷完火之后，你会默默把所有人的活都干了，然后嘴硬地说"我只是顺手"。',
+        personal: '亲爱的焚天龙，你的强大无可置疑。但请记住——不是每个人都和你运转在同一个频率上。给他人一些理解的时间，也给自己一些喘息的空间。你无需时刻燃烧也能闪闪发光。'
+      },
+      cp: { emoji:'🐙', name:'内耗章', reason:'一个负责往前冲，一个负责踩刹车——你们互为镜像，彼此成就。' },
+      tags: ['卷王本王','战略大师','嘴硬心软','执行力天花板'],
+    },
+    NF: {
+      emoji:'🦚', name:'华 羽 雀', code:'FF-NF',
+      analysis: {
+        zodiac: '火象星座赋予你灿烂的表达力——白羊的坦率、狮子的光芒或射手的热情，让你无论走到哪里都像一颗行走的小太阳。你有一种天然的感染力：你笑的时候，周围人也会跟着笑；你兴奋的时候，整个房间都会被你的能量填满。但火象也给你带来了不易察觉的脆弱——你太需要回应了。发完朋友圈隔三秒就刷一下，没人点赞就会悄悄质疑自己。你不是虚荣，你只是太在乎人与人之间那一点点温暖的共振。',
+        mbti: 'MBTI 中的 NF 型——直觉与情感的融合——让你成为天生的梦想家和共鸣者。你看世界不是看它"是什么"，而是看它"可以是什么"。你对人的情绪有着雷达般的敏感度，谁今天心情不好，谁在强颜欢笑，你一眼就能看出来。这种敏感是一份珍贵的天赋，让你成为朋友心中最温暖的港湾。但它也是一把双刃剑——当世界给你太多情绪信号时，你会像一台超载的接收器，最终被自己的共情能力反噬。',
+        fusion: '火象的感染力与 NF 的共情雷达结合在一起，照妖镜里显出最耀眼的华羽雀。你是人群中的那道光——有你在的场合永远不会冷场，你随手抛出的一个话题就能让所有人热络起来。但华羽雀的秘密在于：你外表光芒万丈，内心其实比谁都敏感。深夜关掉朋友圈之后，你会一个人陷入长久的自我怀疑："我表现得够好吗？" "那句话是不是说错了？" 你太习惯给别人提供情绪价值了，以至于忘了自己也需要被充电。你开屏的时候全世界都在看，但收屏的时刻，只有你自己知道那份疲惫。',
+        personal: '亲爱的华羽雀，你的光芒不需要 24 小时营业。你可以累，可以不完美，可以偶尔不回消息。真正爱你的人，连你收屏的样子也爱。'
+      },
+      cp: { emoji:'🐋', name:'伏 波 鲸', reason:'一个负责发光，一个负责承重。你的眼泪他都能接住，他的沉默你能读懂。' },
+      tags: ['气氛掌控者','共情雷达','深夜 emo 选手','光芒制造机'],
+    },
+    SJ: {
+      emoji:'🦁', name:'擎 苍 狮', code:'FF-SJ',
+      analysis: {
+        zodiac: '火象的王者之气——白羊的担当、狮子的气度或射手的慷慨，让你天生就是个"扛事的人"。朋友有事第一个想到的就是你，因为只要你在，大家就觉得安心。你有一种与生俱来的保护欲：看不得身边人受委屈，宁可自己吃亏也要护短到底。但这种"扛"也让你背负了很多：你发出去的红包永远最大，但月底算账的时候才会露出一丝狼狈。火象的热血让你习惯了冲在最前面，以至于常常忘了——你也是需要被照顾的。',
+        mbti: 'SJ 型——感觉与判断的组合——让你成为秩序的守护者和可靠的执行者。在这个变化无常的世界里，你就是那个"不变"的锚点。你珍惜传统，尊重规则，相信一步一个脚印的力量。别人可能会觉得你有点固执，但正是这份固执让所有依赖你的人都睡得安稳。你做的 Excel 表格永远是团队的审美天花板，你写的周报可以进 MBA 教案。但 SJ 型也让你背负了一个隐形的重担：你觉得一切都和你有关，所有责任都该你扛。',
+        fusion: '火象的担当精神与 SJ 的秩序感融合，照妖镜里显出擎苍狮。你是天生的守护者——站在队伍最前面，把所有人挡在身后。你发号施令的样子看起来很酷，但其实你比谁都在乎每一个人的感受。擎苍狮最大的矛盾在于：你一边骂朋友恋爱脑，一边自己比谁都快上头；你一边说"我再也不管了"，一边默默打开手机帮对方查资料。你嘴上说着"你们省点心"，但你真正害怕的，是某一天真的没人需要你了。你护短的时候最帅，但被人护的时候却浑身不自在。',
+        personal: '亲爱的擎苍狮，扛得住山的人，往往也最容易被一根羽毛压垮。偶尔把重担放下来——世界不会塌，而你值得被照顾一次。'
+      },
+      cp: { emoji:'🐢', name:'定 渊 龟', reason:'一个冲锋陷阵，一个在后方煮粥守夜。你累的时候，他永远为你留着最后一盏灯。' },
+      tags: ['护短狂魔','买单侠','可靠天花板','外刚内柔'],
+    },
+    SP: {
+      emoji:'🐆', name:'逐 风 豹', code:'FF-SP',
+      analysis: {
+        zodiac: '火象的爆发力——白羊的冲劲、狮子的激情或射手的自由魂——让你成为天生的冒险家。你不喜欢被束缚，不爱听"应该"两个字，任何形式的规则在你看来都是建议而非命令。你有一种野性的直觉：不需要太多数据和分析，身体会告诉你该往哪跑。但火象的燃料烧得快也熄得快——你很容易激动地开始一件事，也很容易在看到成果之前就失去兴趣。你的朋友们已经习惯了你的"三天打鱼"，但你不知道的是，他们也很期待看到你打到鱼的那一天。',
+        mbti: 'SP 型——感觉与感知的组合——让你活在当下，拥抱变化。你不做五年计划，因为下个月的自己都不一定和现在一样。你是处理危机的高手：越是紧急的时刻，你的头脑反而越清醒。平时看起来散漫随性，但真正到了关键节点，你爆发出来的效率和创造力会让所有人大跌眼镜。SP 型赋予你一种高贵的松弛感——你不焦虑于未来，因为你知道自己随时可以接住生活抛来的任何球。但别人看不到的是，这份松弛背后，藏着你对自己深深的怀疑：我是不是不够努力？',
+        fusion: '火象的野生力量与 SP 的即兴天赋碰撞，照妖镜里显出最自由不羁的逐风豹。你是草原上最让人捉摸不透的存在——永远在动，永远在路上，永远有一个新计划但永远没说什么时候开始。你的"拖延"不是懒，是你需要那个恰到好处的紧迫感来点燃引擎。但你最厉害的地方在于：当所有人都以为你要翻车的时候，你总能用一个漂亮的漂移证明——你们多虑了。逐风豹的孤独是：你跑得太快太自由，以至于没人能跟上你的节奏。DDL 不是你的敌人，是你认识自己实力的唯一方式。',
+        personal: '亲爱的逐风豹，你的自由不需要向任何人解释。但偶尔慢下来，你会发现有些风景不需要冲刺才能看到。你的节奏就是最好的节奏。'
+      },
+      cp: { emoji:'🐱', name:'凌 霜 猫', reason:'一个撒野一个慵懒。你们彼此懂得"不打扰"的温柔，在一起就是舒服。' },
+      tags: ['DDL战神','自由至上','松弛感大师','爆发型选手'],
+    },
+  },
+  earth: {
+    NT: {
+      emoji:'🦉', name:'渡 夜 鸮', code:'EE-NT',
+      analysis: {
+        zodiac: '土象的沉稳——金牛的笃定、处女的精密或摩羯的坚韧——让你成为人群中最安静的定海神针。你不急于表达，不冲动行事，像大地一样沉默却有力。土象赋予你惊人的耐心和耐力：别人半途而废的事情，你能一声不吭地坚持到最后。但土象也让你习惯性地把一切都扛在肩上——你不说累，不是不累，是觉得说了也没用。你像一块岩石，日夜被海浪冲刷但纹丝不动。但岩石的内部也有细密的纹理和裂痕，只是你从不让人看见。',
+        mbti: 'NT 型——直觉与思维的深度引擎——让你拥有了探索世界底层逻辑的冲动。你沉浸于思考的快感中：一个有意思的问题能让你追到天亮。你喜欢独处不是因为不合群，而是因为在安静中你的思维才能最大程度地展开。NT 型让你对"为什么"有着无穷的追问，但也让你常常困在"然后呢"的茫然里。你脑海里已经写完了三篇论文、构思了两个创业项目、模拟了四种人生路径——而外界看到的，只是一个安安静静喝咖啡的你。',
+        fusion: '土象的厚重与 NT 的深度结合，照妖镜里显出最沉静的智者——渡夜鸮。你是深夜的保护神：当世界沉睡时，你的大脑才刚刚开始运转。冰美式是你的仪式，凌晨两点是你的黄金时间。你敏锐地观察着这个世界的运转规律，像一个坐在枝头的猫头鹰，看着森林里的一切发生。你不急着参与，但你对一切了如指掌。渡夜鸮的困境在于：你看到太多，做到太少。你脑内的世界已经精彩纷呈，但现实中你还坐在原地。你不是没有能力，你是太擅长在开始之前把所有的风险都想清楚了——包括不做这件事的风险。',
+        personal: '亲爱的渡夜鸮，思考是你看世界的方式，但不要让它成为阻挡你进入世界的墙。从脑内的森林飞出来吧，现实比你想象的更宽容。'
+      },
+      cp: { emoji:'🦅', name:'览 川 鹰', reason:'一个负责深度一个负责广度，你们的对话能印成书。思想上的灵魂伴侣。' },
+      tags: ['深夜哲学家','深度思考者','脑内工厂','沉默的观察家'],
+    },
+    NF: {
+      emoji:'🐼', name:'栖 云 熊', code:'EE-NF',
+      analysis: {
+        zodiac: '土象的温和——金牛的柔软、处女的细腻或摩羯的低调——让你拥有一种不张扬的温暖。你不是那种一出现就炸场的人，你是那种待久了才知道离不开的人。土象让你有一种天然的疗愈气质：在你身边，人们会不自觉地放松下来。你像一棵树，不说话，但愿意为所有人遮阴。但你也有土象的慢热和被动——表达感情对你来说不是一件轻松的事，你习惯把关心藏在行动里，然后期待有人能不声不响地发现。',
+        mbti: 'NF 型——直觉的幻想与情感的温柔——让你拥有一个比外界丰富一百倍的内心世界。你在网上是哈哈哈哈的刷屏王者，表情包库存多到可以开小型展览。但走出屏幕，你是那个在电梯里祈祷没人进来的人。NF 型让你对美好事物有着执着的追求：一首歌可以循环两百遍，一部电影可以看哭五回，一只路边的猫可以让你开心一整天。你的精神世界繁花似锦，但只有拿到邀请函的人才能一窥究竟。你渴望深度连接，但你的门槛很高——不是谁都能走进你那个精心布置的精神花园。',
+        fusion: '土象的温厚与 NF 的敏感交织，照妖镜里显出最温柔的栖云熊。你是那个在热闹场合默默坐在角落的人，但也是那个在朋友崩溃时二话不说打车穿越半个城市的人。你的温柔从不声张——你会在深夜给朋友转发一首歌，什么都不说，但对方听完就哭了。栖云熊的软肋在于：你太怕麻烦别人了。想说的话在对话框里打了三遍最后删掉，想见的人反复确认"会不会打扰"然后作罢。你把所有的善意给了世界，把所有的犹豫留给自己。你在网络上是冲锋陷阵的战士，在线下是躲在竹子后面的熊猫——但两个都是真实的你，都值得被爱。',
+        personal: '亲爱的栖云熊，躲在竹子后面是安全的，但走出来才会发现——外面也有很多想给你递竹子的人。你值得被看见。'
+      },
+      cp: { emoji:'🦊', name:'隐 川 狐', reason:'一个社恐一个糊弄，两个人待在一起不说话也不尴尬。最低能耗的完美共生。' },
+      tags: ['网聊战神','面基困难户','温柔巨人','请假文学大师'],
+    },
+    SJ: {
+      emoji:'🐂', name:'耕 岳 牛', code:'EE-SJ',
+      analysis: {
+        zodiac: '土象的勤勉——金牛的耐力、处女的仔细或摩羯的执著——让你成为所有人眼中"最靠谱"的那个人。"交给 XX 就行"是你在团队里听过最多的话。这不是夸奖，这是一张无形的责任状。你从不推活，从不甩锅，把事情交给你就像把钱存进银行——稳。但土象也给你带来了无法卸下的疲惫感：你太能扛了，所以所有人都不觉得你需要帮助。你像一头永远在耕田的牛，低着头一步一步往前走，没时间抬头看风景，也没人问你是不是累了。',
+        mbti: 'SJ 型——感觉的务实与判断的条理——让你成为理想和现实之间的那座桥梁。别人负责天马行空，你负责落地执行。你的 Excel 是团队审美的天花板，你写的文档可以被当作模板传给新同事。SJ 型对标准有着不妥协的坚持：你说"能用就行"的时候其实心里已经改了十几版。你的责任心和执行力让你在任何组织里都是不可或缺的存在。但你的弱点恰恰也在这里——你把所有事情都做成了自己的事，等到回过神来才发现，整个团队的活不知什么时候全跑到了你头上。',
+        fusion: '土象的耐力与 SJ 的秩序感融合，照妖镜里显出最勤恳的耕岳牛。你是团队真正的基石——不抢风头，不出风头，但少了你就塌了半边天。你嘴上说着"这破活谁爱干谁干"，第二天还是第一个出现在办公室。你不是没有脾气，你是觉得发脾气太浪费时间了，有那个功夫还不如多改两行代码。耕岳牛的悲哀在于：你的优秀被当成了理所当然。你做得好是"正常发挥"，别人做得好是"超常发挥"。你已经习惯了被低估——但你内心深处还是希望有人能看懂你凌晨两点改的那第十八版。',
+        personal: '亲爱的耕岳牛，你不需要每次都做到 120 分。80 分就够了，剩下的 40 分留给你自己。你的价值不体现在多少个"好的收到"里。'
+      },
+      cp: { emoji:'🐝', name:'织 序 蜂', reason:'一个执行一个规划，从表格到落地无缝衔接。职场最强二人组——虽然依然不加薪。' },
+      tags: ['靠谱天花板','表格艺术家','职场永动机','背锅学博士'],
+    },
+    SP: {
+      emoji:'🦡', name:'守 静 獾', code:'EE-SP',
+      analysis: {
+        zodiac: '土象的独立——金牛的自足、处女的清冷或摩羯的克制——让你成为最不需要社交也能活得很好的人。你不是讨厌人类，你只是觉得社交太累了。土象赋予你一种低调的韧性：你在人群中不显眼，但你比任何人都更能独处。你对"自己的空间"有一种近乎偏执的守护——不打招呼就来敲门的朋友是你最大的噩梦。你的朋友们已经接受了"发消息三天回"是你不成文的规矩——不是针对谁，对所有人类都一视同仁。',
+        mbti: 'SP 型——感觉的敏锐与感知的随性——让你成为活在当下的高手。你不喜欢计划，但你的直觉总是能带你走到对的地方。你对环境有超乎常人的觉察力：谁进房间了、气氛变了、有什么不对劲——你全知道，只是懒得说。SP 型给了你一个外人看不到的丰富的内心世界：你一个人待着的时候从不无聊，你有自己的节奏、自己的收藏、自己精心维护的小天地。你的手机常年静音不是因为你忘了开，是因为你觉得"随时能被找到"这件事本身就很令人焦虑。',
+        fusion: '土象的低调与 SP 的随性化合，照妖镜里显出最擅长独处的守静獾。你是那种"活在自己世界里但意外地让人羡慕"的存在。你不需要太多——一张舒服的沙发、一部好剧、一个没人打扰的周末——这些对你来说就是全宇宙最好的事。守静獾的悖论在于：你享受独处，但你并不冷漠。你会在深夜收到朋友的消息后认真思考怎么回（虽然可能要思考两天），你会在乎那些你在乎的人——只是你表达的方式极其节能。能打字绝不语音，能发表情包绝不打字，能点赞绝不评论。不是懒，是没必要浪费能量在不重要的事情上。',
+        personal: '亲爱的守静獾，享受独处是一种了不起的能力。但也请偶尔探出你的洞穴——外面的阳光和月光，都值得你亲自去看看。'
+      },
+      cp: { emoji:'🦜', name:'衔 音 鹮', reason:'一个不爱说话一个话量超标。她的声音不会让你烦躁，你的安静能让她安定。' },
+      tags: ['独处大师','已读不回专家','静音终身会员','低能耗生活家'],
+    },
+  },
+  air: {
+    NT: {
+      emoji:'🦅', name:'览 川 鹰', code:'AA-NT',
+      analysis: {
+        zodiac: '风象的灵动——双子的好奇、天秤的平衡或水瓶的超越——让你拥有一颗永不满足的大脑。你的思维像风一样自由，不受任何框架的限制。你能在五分钟内从量子物理聊到俄乌局势再聊到为什么今天不想叠被子。风象赋予你一种轻盈的智慧：你不需要特别用力就能掌握大部分事情的要领。但风象也带来了不稳定的特质——你的兴趣太广了，广到没有一个方向能让你扎根。你什么都知道一点，但什么都不够深——这句话大概是你最怕听到但又不得不承认的评价。',
+        mbti: 'NT 型——直觉的广度与思维的分析力——让你成为一个天生的辩论家和思想者。你喜欢观点的碰撞，你把争论当作一种思维游戏。对你来说，"对错"不是最重要的，"有意思"才是。NT 型让你能够站在高处俯瞰问题：你不容易被情绪左右，你擅长剥离主观因素看清本质。这让你的判断力很强，但也让你有时候显得"高高在上"——你给出的建议往往是对的，但别人听到的是"你怎么这么笨"。你不是故意的，你只是忘了不是所有人都在你的海拔。',
+        fusion: '风象的广度与 NT 的锐度碰撞，照妖镜里显出视野最辽阔的览川鹰。你盘旋在高空，俯瞰着一切的发生。你知道很多，理解很多，但做得很少——因为在你看来，很多事情"懂了就行"，没必要亲自下场。览川鹰的瓶颈在于：你的大脑是一台永不关机的分析仪，从天下大事到个人琐事，你都能找到一套理论来解释。但道理懂太多之后，行动反而变得困难——因为你知道所有的最优解，也知道所有最优解背后的代价，于是你选择什么都不做。你飞得太高，以至于看不清脚下了。',
+        personal: '亲爱的览川鹰，知识和道理是你最锋利的武器，但生活不是一道需要解答的题。偶尔关掉大脑，感受一下风吹过羽翼的感觉。'
+      },
+      cp: { emoji:'🦉', name:'渡 夜 鸮', reason:'一个俯瞰全局，一个深钻本质。你们的深夜长谈就是彼此的充电站。' },
+      tags: ['百科全书','理论派王者','高海拔选手','知识杂食动物'],
+    },
+    NF: {
+      emoji:'🦜', name:'衔 音 鹮', code:'AA-NF',
+      analysis: {
+        zodiac: '风象的灵动——双子的机敏、天秤的优雅或水瓶的独特——让你天生就是社交场的润滑剂。你的大脑转速极快，快到嘴巴经常跟不上——于是你说出来的话常常是一阵轻快的旋风，听的人不一定跟得上，但都觉得很有趣。风象赋予你永不枯竭的表达欲：你无法忍受沉默超过三秒，每当空气安静下来，你就会本能地找到一个话题重新点燃气氛。你不是话多，你是真的觉得"不说点什么气氛会很尴尬"。',
+        mbti: 'NF 型——直觉的跳跃与情感的共振——让你成为最不像"社牛"的社牛。你的直觉让你能捕捉到每个人话语里的潜在需求，你的情感让你天然地想让每个人感到舒适。你说话的时候信息密度可能不高——"对对对""笑死""真的真的""哈哈哈哈"——但你的存在本身就是一种情绪价值。NF 型让你拥有一种天赋：你知道什么时候该说什么（虽然大多数时候你说的是废话）。但这份天赋背后是一个柔软的心——你能感受到所有人的情绪，所以你努力让自己成为那个让气氛变好的人。',
+        fusion: '风象的表达力与 NF 的情感触觉纠缠，照妖镜里显出最热闹的衔音鹮。你是群聊里的永动机——只要你在，群就不会凉。你发出去的 60 秒语音方阵拆开来看可能全是语气词，但没有人会不耐烦，因为你的声音本身就有让人开心的魔力。衔音鹮的脆弱在于：你说个不停，很大程度上是因为你害怕安静。安静的时候你会想太多，你会怀疑自己、怀疑关系、怀疑一切。所以你用声音填满每一寸空间。你需要的不是更多的听众，而是一个你不说话也不会尴尬的人。你说的话 99% 是废话，但那 1% 的真心，值得被认真地听见。',
+        personal: '亲爱的衔音鹮，你的声音很好听，但沉默也不可怕。和懂你的人在一起，不说话也是对话。你的存在本身就已经足够。'
+      },
+      cp: { emoji:'🦡', name:'守 静 獾', reason:'一个说个不停一个安静地听。他的沉默不是冷漠，是给你最专注的目光。' },
+      tags: ['群聊灵魂','语音轰炸机','气氛永动机','废话文学大师'],
+    },
+    SJ: {
+      emoji:'🐝', name:'织 序 蜂', code:'AA-SJ',
+      analysis: {
+        zodiac: '风象的敏捷——双子的多线程、天秤的优雅或水瓶的系统思维——让你成为规划和组织的高手。你的脑子里有一个天然的 Excel 表格，所有事情都按优先级和时间线排列得清清楚楚。风象让你拥有同时处理多项任务的超能力：一边开会一边写方案一边回微信还要顺手给朋友的朋友圈点个赞——这些对你来说毫无压力。但风象也让你容易陷入"计划太多执行太少"的循环——你做计划的快感远远大于执行计划的快感。',
+        mbti: 'SJ 型——感觉的务实与判断的条理——让你成为理想落地的那个人。别人负责画饼，你负责把饼切成均匀的小块，包装好，标好保质期然后放进冰箱。你对细节的关注令人发指：一份会议纪要在你手里可以变成一篇格式完美的结构化文档。SJ 型让你对"有序"有一种近乎偏执的追求。你的 Notion 页面精美到可以当模板卖，你的年度计划写得比一些公司的战略报告还详细。但问题在于：完美的计划给了你一种"已经完成了"的幻觉，于是真正的执行反而被一推再推。',
+        fusion: '风象的灵活与 SJ 的秩序感合体，照妖镜里显出最善于规划的织序蜂。你像一个永不停歇的小蜜蜂，勤勤恳恳地搭建着自己精密的蜂巢——每一个格子都规整、每一个步骤都有序。你是那种会写"如何写计划"的计划的人，是计划本身的艺术家。织序蜂的纠结在于：你是世界上最擅长做准备的人，但准备得太好了反而迟迟不出发。你需要那份完美的计划给你安全感，但安全感拿到手之后，出发的动力反而消失了。你不是懒，你是太喜欢"准备好"的状态了。完成不是你的目标，完美的准备过程才是。',
+        personal: '亲爱的织序蜂，不完美的开始胜过完美的计划。你的蜂巢已经够漂亮了——飞出去采第一朵花吧，花粉比你想象的更近。'
+      },
+      cp: { emoji:'🐂', name:'耕 岳 牛', reason:'一个负责把蓝图做成甘特图，一个负责把甘特图变成现实。绝配。' },
+      tags: ['规划艺术家','Notion重度用户','秩序美学','计划型拖延'],
+    },
+    SP: {
+      emoji:'🦊', name:'隐 川 狐', code:'AA-SP',
+      analysis: {
+        zodiac: '风象的机敏——双子的灵活、天秤的圆融或水瓶的疏离——让你成为社交场上最游刃有余的存在。你能和任何人聊上三句，让每个人都觉得"和他相处好舒服"。但只有你自己知道：让人舒服不是因为你投入了感情，而是你掌握了技巧。风象赋予你一种"蜻蜓点水"式的社交能力——你能在水面上激起一圈圈涟漪，但从不停留太久。你的朋友名单很长，但深夜能拨出去的号码很短——不，不是短，是你根本不知道那通电话该打给谁。',
+        mbti: 'SP 型——感觉的觉察与感知的灵活——让你成为随遇而安的高手。你是糊弄学的大师："嗯嗯""好的""收到""笑死"——这四句话足以撑起你 90% 的社交场景。SP 型给了你一种让人羡慕的松弛：你不执著，不纠结，不钻牛角尖。事情成了就庆祝，没成就翻篇。但这份松弛也有一个隐藏的代价——你太擅长糊弄了，以至于很多时候你连自己都糊弄过去了。你不知道自己真正想要什么，因为你习惯了"都可以""还行""无所谓"。',
+        fusion: '风象的轻盈与 SP 的随性碰撞，照妖镜里显出最善于伪装的隐川狐。你是一只穿梭于都市丛林中的灵巧狐狸——谁都认识你，但谁都不真正了解你。你有一种与生俱来的伪装天赋：根据场合切换模式，根据对象调整语调，让每个人都看到一个最舒服版本的你。隐川狐的秘密在于：你让人舒服不是因为你真的在乎，而是因为"让人舒服"是最省力的策略。你不需要付出什么实质的东西，一个微笑、一个点头、一个"嗯嗯"，就能解决大部分问题。但糊弄久了，你开始分不清自己什么时候是认真的。偶尔认真一次，身边的人会被吓到："你今天怎么了？" 没事，只是忘了你也会累。',
+        personal: '亲爱的隐川狐，你的聪明和圆融让人如沐春风。但不用时刻保持完美社交——偶尔也让自己感受一次笨拙的真诚。'
+      },
+      cp: { emoji:'🐼', name:'栖 云 熊', reason:'一个面面俱到一个笨拙真诚。你的圆滑给了他安全感，他的诚实让你放下伪装。' },
+      tags: ['糊弄学宗师','社交变色龙','表面亲和力','嗯嗯怪'],
+    },
+  },
+  water: {
+    NT: {
+      emoji:'🐙', name:'沉 渊 章', code:'WW-NT',
+      analysis: {
+        zodiac: '水象的深邃——巨蟹的敏感、天蝎的洞见或双鱼的灵性——让你拥有一个比马里亚纳海沟还深的内心世界。你的情绪不是一条河流，而是一片暗流涌动的深海。表面平静，底下却有八个维度的思绪在同时翻搅。水象赋予你超凡的感知力：你能感受到别人感受不到的微妙氛围，能捕捉到话语背后没有说出来的意思。但这份敏锐也是一把双刃剑——你感受到的东西太多了，多到你的神经系统根本处理不过来。于是你变成了一个"想太多"的人：一个眼神你能解读出十种含义，一句话你能回味三天。',
+        mbti: 'NT 型——直觉的深远与思维的精密——让你拥有了分析情绪的能力。这听起来很讽刺：一个水象 NT，居然在用自己的思维去解剖自己的情感。你比别人多一个"元认知"的维度：你不仅在感受，你还在分析自己为什么会有这种感受。这让你的自我觉察能力极强，但也让你陷入了无尽的自我博弈。你的大脑像一只八爪鱼，有八条触手同时在探索八个不同的问题——从"人生的意义是什么"到"今天中午点什么外卖"，每条触手都在独立运转，谁也不让谁。',
+        fusion: '水象的深度与 NT 的自省能力结合，照妖镜里显出最复杂的内耗大师——沉渊章。你的脑内小剧场每天二十四小时不间断播出：有剧情片（如果他当时说的是那句话）、有悬疑片（老板那句话到底什么意思）、有灾难片（万一明天汇报搞砸了怎么办）、还有哲学片（人为什么要工作）。你像一只在深海中独自游泳的章鱼，每一条触手都紧紧握着一种可能性不肯放手。沉渊章的悲哀在于：你什么都想清楚了，但想清楚之后反而更不敢行动了。因为你知道所有的变量和风险，知道每一个决定背后的蝴蝶效应。你不怕做错决定，你怕的是"不够好的决定"。但你不知道的是——你停在原地的时候，就已经做了一个决定。',
+        personal: '亲爱的沉渊章，深海的风景很美，但并不是只有深海才有光。浮上水面深呼吸——有些事情，不需要想清楚才能开始。'
+      },
+      cp: { emoji:'🐉', name:'焚 天 龙', reason:'一个负责想一个负责做。他拽你从漩涡里出来，你帮他在喷火前先思考三秒。' },
+      tags: ['内耗冠军','脑内编剧','深海思想家','八线程并行'],
+    },
+    NF: {
+      emoji:'🐋', name:'伏 波 鲸', code:'WW-NF',
+      analysis: {
+        zodiac: '水象的深情——巨蟹的滋养、天蝎的炽烈或双鱼的浪漫——让你拥有全世界最柔软的一颗心。你的情感不是浅滩，是一片看不到底的海。你能感受到别人的痛苦就像感受自己的痛苦一样真切。看广告你会哭，看新闻你会哭，连看别人家猫的视频你都能眼圈泛红。水象让你成为全世界最好的倾听者：你不会打断，不会评判，你只是静静地接收着对方所有的情绪，然后用一种近乎本能的方式把那些痛苦转化成温暖的东西再还回去。但问题是——你接收了太多，转化了太多，自己的杯子里却空了。',
+        mbti: 'NF 型——直觉的想象力与情感的深广度——让你的共情能力达到了近乎超自然的级别。你不只是"知道"别人在难过，你几乎是"变成"了那个难过的人。你在帮别人消化情绪的时候，自己的身体也在承受着相同的重量。NF 型让你热衷于编织意义和连接：你会在深夜给远方的人发一首歌，会在看到某个画面时想起一个不怎么联系的朋友，会收藏那些别人看来无用但对你来说极为珍贵的小东西。你的情感世界丰富到溢出来，但你很少为自己留一个情绪的出口。',
+        fusion: '水象的深情与 NF 的共情之海汇聚，照妖镜里显出最温柔的伏波鲸。你是一头在情感深海中悠然游动的巨鲸，你的歌声能穿透水层抵达最深最冷的地方。你天生懂得如何承托别人——朋友在你面前崩溃大哭之后总会说"不知道为什么在你面前就忍不住"。你知道为什么：因为你不怕眼泪，不怕崩溃，不怕任何人最不堪的样子。你见过太多人的脆弱，所以你知道每个人都在坚强地活着。伏波鲸的矛盾在于：你盛满了全世界的眼泪，却忘了给自己留一个可以哭的地方。你帮所有人疗伤，但你的伤谁来疗？你为别人流的每一滴眼泪都是真的，但为自己流的——好像没有过。',
+        personal: '亲爱的伏波鲸，你的温柔是这个世界上最稀缺的资源。但你不需要总是承托别人——允许自己浮上水面换一口气，允许有人也为你撑一次伞。'
+      },
+      cp: { emoji:'🦚', name:'华 羽 雀', reason:'一个负责笑一个负责哭。你们的情绪光谱合在一起能覆盖全人类。' },
+      tags: ['眼泪富矿','共情超人','深夜倾听者','情感海洋'],
+    },
+    SJ: {
+      emoji:'🐢', name:'定 渊 龟', code:'WW-SJ',
+      analysis: {
+        zodiac: '水象的深沉——巨蟹的守护、天蝎的执著或双鱼的包容——让你拥有一种不动声色的力量。你不是那种大声宣告"我在乎"的人，你只是默默地做了所有在乎的事。水象赋予你一种"滴水穿石"的耐心：你不急着证明什么，不赶着去任何地方。你相信时间站在你这一边。但水象也让你容易陷入反复的自我检视：你今天说的某句话、某个表情、某个决定——晚上躺在床上的时候，你会像翻监控录像一样把它们逐帧回放、逐条分析。',
+        mbti: 'SJ 型——感觉的踏实与判断的秩序——让你成为稳定的化身。在任何动荡的环境里，你都是那个不会慌的人。你的镇定不是装出来的，是你真的觉得"慌有什么用"。SJ 型赋予你对生活的掌控力：你的作息规律得像瑞士钟表，你的养生知识储备堪比三甲医院营养科。十点睡觉不是口号，是你的底线。但 SJ 型也让你和"失控"这件事有着复杂的关系——你太想要一切都按部就班了，以至于任何一点偏离都会让你在脑子里反复复盘，试图找到那个"原本可以做得更好"的节点。',
+        fusion: '水象的深沉与 SJ 的秩序感交融，照妖镜里显出最稳当的定渊龟。你是一只驮着整个生态系统的海龟——沉稳、持久、不慌不忙。你的朋友们把你当作定心丸：只要你在，一切就还在掌控之中。你的保温杯里泡的不只是枸杞，是你对生活全部的认真和敬意。定渊龟的可爱矛盾在于：你惜命如金，但熬夜复盘。你十点躺下，十二点还没睡着——因为你在重新播放今天所有的社交场景。养生和焦虑在你身上达成了某种诡异的平衡：早睡是为了更好地焦虑，焦虑是为了更认真地养生。你不是在活着，你是在维护一件精密的作品——而你就是那件作品本身。',
+        personal: '亲爱的定渊龟，你的稳重让所有人安心。但偶尔也允许自己"不小心"——失控一点点不会怎样，你不是机器，你是一个活生生的人。'
+      },
+      cp: { emoji:'🦁', name:'擎 苍 狮', reason:'一个负责往前冲一个负责守后方。你熬夜时她陪你，她冲动时你拦住她。' },
+      tags: ['养生学家','情绪稳定器','睡前复盘怪','保温杯代言人'],
+    },
+    SP: {
+      emoji:'🐱', name:'凌 霜 猫', code:'WW-SP',
+      analysis: {
+        zodiac: '水象的神秘——巨蟹的忽冷忽热、天蝎的爱恨分明或双鱼的出神入化——让你成为十二星座里最难被读懂的存在。你的情绪像深水一样不可测：想理人的时候你恨不得把全世界最好的都捧给对方，不想理人的时候你连标点符号都懒得多打一个。水象赋予你一种致命的吸引力——不是那种光芒万丈的美，而是那种"不知道在想什么但就很迷人"的幽深。但你也常被自己忽冷忽热的体质困扰：不是故意的，是情绪来了你也拦不住。',
+        mbti: 'SP 型——感觉的敏锐与感知的自由——让你成为不按常理出牌的天才。你对美有着天生的敏感：一张好照片、一首好音乐、一条剪裁完美的裙子——这些能让你快乐一整天。你不追求世俗意义上的"成功"，你追求的是"我觉得值"。SP 型让你成为了反卷先锋：别人在加班你在撸猫，别人在考证你在天台看日落。不是懒，是你对"值得"的定义和别人不一样。但 SP 型也让你难以被规训——任何形式的约束都会触发你的逃离本能。你不是叛逆，你只是太爱自由了。',
+        fusion: '水象的神秘与 SP 的自由魂融合，照妖镜里显出最高不可攀的凌霜猫。你是一只独自行走在都市夜色中的猫——步伐优雅、眼神冷淡，不主动讨好任何人。你有自己的节奏、自己的审美、自己的小世界，别人进不来，你也不太想出去。凌霜猫的致命魅力在于：你的忽冷忽热不是策略，是天性。想理一个人的时候，你比任何人都甜、都黏、都细腻；不想理的时候，你消失得比风还快。这种不确定性让人抓狂，但也让人上瘾。你不缺喜欢——你缺的是那个能让你持续保持"想理他"的人。你不怕孤独，你怕的是和错的人在一起反而比一个人更孤独。',
+        personal: '亲爱的凌霜猫，你的高冷是你最性感的铠甲。但真正爱你的人不需要你卸下铠甲——他会在铠甲旁边坐下来等你伸出爪尖的那一刻。'
+      },
+      cp: { emoji:'🐆', name:'逐 风 豹', reason:'一个懒一个野。你们在一起不需要刻意维系——舒服是唯一的标准。' },
+      tags: ['高冷艺术家','反卷先锋','忽冷忽热','审美天花板'],
+    },
+  },
+};
+
+const loadingJokes = [
+  '正在解读你的星座DNA序列...', '正在扫描你的人格维度...', '正在翻阅天界妖怪图鉴...',
+  '正在分析你的社交模式...', '正在和十二星座连线...', '正在翻阅你的朋友圈...',
+  '数据量有点大，请耐心等待...', '妖怪正在显形的路上...', '检测到大量已读不回记录...',
+  '脑内小剧场正在加载字幕...',
+];
+
+// ==================== STATE ====================
+let state = {
+  zodiac: null, currentQ: 0,
+  scores: { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 },
+  result: null, answering: false,
+};
+
+// ==================== DOM ====================
+const $ = id => document.getElementById(id);
+const screenZodiac = $('screen-zodiac'), screenQuiz = $('screen-quiz');
+const screenLoading = $('screen-loading'), screenResult = $('screen-result');
+const zodiacGrid = $('zodiacGrid'), btnStart = $('btnStart');
+const zodiacLabel = $('zodiacLabel'), progressDots = $('progressDots');
+const dimensionLabel = $('dimensionLabel'), questionText = $('questionText');
+const optionsWrap = $('optionsWrap'), quizCard = $('quizCard');
+const loadingJokeEl = $('loadingJoke'), resultCard = $('resultCard');
+const btnShare = $('btnShare'), btnRetry = $('btnRetry');
+
+function showScreen(screen) {
+  [screenZodiac, screenQuiz, screenLoading, screenResult].forEach(s => s.classList.remove('active'));
+  screen.classList.add('active');
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; }, 1800);
+  setTimeout(() => t.remove(), 2200);
+}
+
+// ==================== ZODIAC ====================
+function buildZodiacGrid() {
+  zodiacGrid.innerHTML = zodiacs.map((z,i) => `
+    <div class="zodiac-item" data-index="${i}">
+      <span class="emoji">${z.emoji}</span>
+      <span class="label">${z.name}</span>
+    </div>
+  `).join('');
+
+  zodiacGrid.addEventListener('click', e => {
+    const item = e.target.closest('.zodiac-item');
+    if (!item) return;
+    document.querySelectorAll('.zodiac-item').forEach(el => el.classList.remove('selected'));
+    item.classList.add('selected');
+    state.zodiac = zodiacs[parseInt(item.dataset.index)];
+    btnStart.disabled = false;
+  });
+}
+
+btnStart.addEventListener('click', () => {
+  if (!state.zodiac) return;
+  state.currentQ = 0;
+  state.scores = { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 };
+  state.result = null; state.answering = false;
+  zodiacLabel.textContent = state.zodiac.emoji + ' ' + state.zodiac.name;
+  renderQuestion();
+  showScreen(screenQuiz);
+});
+
+// ==================== QUIZ ====================
+function renderQuestion() {
+  state.answering = false;
+  const q = questions[state.currentQ];
+
+  // Progress dots
+  progressDots.innerHTML = questions.map((_,i) => {
+    let cls = '';
+    if (i < state.currentQ) cls = 'done';
+    else if (i === state.currentQ) cls = 'current';
+    return `<div class="progress-dot ${cls}"></div>`;
+  }).join('');
+
+  dimensionLabel.textContent = q.tag;
+  questionText.textContent = q.text;
+
+  optionsWrap.innerHTML = q.opts.map((opt,i) => `
+    <button class="option" data-dim="${opt.dim}" data-weight="${opt.weight}">
+      <span class="opt-prefix">${'ABCD'[i]}</span>${opt.text}
+    </button>
+  `).join('');
+
+  quizCard.style.animation = 'none';
+  quizCard.offsetHeight;
+  quizCard.style.animation = 'fadeUp 0.35s ease';
+}
+
+optionsWrap.addEventListener('click', e => {
+  if (state.answering) return;
+  const opt = e.target.closest('.option');
+  if (!opt) return;
+  state.answering = true;
+  opt.classList.add('selected-anim');
+
+  const dim = opt.dataset.dim;
+  const weight = parseInt(opt.dataset.weight);
+  state.scores[dim] += weight;
+
+  setTimeout(() => {
+    state.currentQ++;
+    if (state.currentQ >= questions.length) { finishQuiz(); }
+    else { renderQuestion(); }
+  }, 300);
+});
+
+// ==================== FINISH ====================
+function finishQuiz() {
+  showScreen(screenLoading);
+  let jokeIdx = 0;
+  loadingJokeEl.textContent = loadingJokes[0];
+  const t = setInterval(() => {
+    jokeIdx = (jokeIdx + 1) % loadingJokes.length;
+    loadingJokeEl.textContent = loadingJokes[jokeIdx];
+  }, 800);
+
+  setTimeout(() => {
+    clearInterval(t);
+    const mbti = calculateMBTI();
+    const group = getMBTIGroup(mbti);
+    state.result = animalData[state.zodiac.element][group];
+    state.result.mbti = mbti;
+    renderResult();
+    showScreen(screenResult);
+  }, 2200);
+}
+
+function calculateMBTI() {
+  const s = state.scores;
+  return (s.E>=s.I?'E':'I') + (s.S>=s.N?'S':'N') + (s.T>=s.F?'T':'F') + (s.J>=s.P?'J':'P');
+}
+
+function getMBTIGroup(t) {
+  if (t[1]==='N'&&t[2]==='T') return 'NT';
+  if (t[1]==='N'&&t[2]==='F') return 'NF';
+  if (t[1]==='S'&&t[3]==='J') return 'SJ';
+  return 'SP';
+}
+
+// ==================== RESULT ====================
+function renderResult() {
+  const r = state.result;
+  const el = { fire:'火象', earth:'土象', air:'风象', water:'水象' };
+  const a = r.analysis;
+
+  resultCard.innerHTML = `
+    <div class="emblem-wrap">
+      <div class="emblem"><span class="emoji">${r.emoji}</span></div>
+    </div>
+    <div class="result-name">${r.name}</div>
+    <div class="result-meta">${state.zodiac.emoji} ${state.zodiac.name} · ${el[state.zodiac.element]} · ${r.mbti} · ${r.code}</div>
+
+    <div class="analysis-section">
+      <div class="sec-label">星座底色 · ${el[state.zodiac.element]}</div>
+      <div class="sec-body"><p>${a.zodiac}</p></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="analysis-section">
+      <div class="sec-label">人格棱镜 · ${r.mbti}</div>
+      <div class="sec-body"><p>${a.mbti}</p></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="analysis-section">
+      <div class="sec-label">现出原形 · ${r.emoji} ${r.name}</div>
+      <div class="sec-body"><p>${a.fusion}</p></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="analysis-section">
+      <div class="sec-label">致 ${r.name} 的你</div>
+      <div class="sec-body"><p>${a.personal}</p></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="analysis-section">
+      <div class="sec-label">本命伴侣</div>
+      <div class="cp-inline">${r.cp.emoji} <strong>${r.cp.name}</strong><br>${r.cp.reason}</div>
+    </div>
+
+    <div class="tag-row">
+      ${r.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+    </div>
+  `;
+}
+
+// ==================== SHARE & RETRY ====================
+btnShare.addEventListener('click', () => {
+  if (!state.result) return;
+  const r = state.result;
+  const text = `【照妖镜】${state.zodiac.emoji} ${state.zodiac.name} · 原形：${r.emoji} ${r.name}\n\n来照照你是什么妖怪 →`;
+
+  if (navigator.share) {
+    navigator.share({ title:'照妖镜 — 星座×MBTI 现出原形', text }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(text).then(() => toast('已复制，去分享吧')).catch(() => toast('请截图分享'));
+  }
+});
+
+btnRetry.addEventListener('click', () => {
+  state.zodiac = null; state.currentQ = 0;
+  state.scores = { E:0,I:0,S:0,N:0,T:0,F:0,J:0,P:0 };
+  state.result = null; state.answering = false;
+  btnStart.disabled = true;
+  document.querySelectorAll('.zodiac-item').forEach(el => el.classList.remove('selected'));
+  showScreen(screenZodiac);
+});
+
+// ==================== INIT ====================
+buildZodiacGrid();
+</script>
+</body>
+</html>
